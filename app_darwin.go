@@ -3,13 +3,13 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
@@ -17,8 +17,6 @@ type appBundle struct {
 	Name   string
 	Source string
 }
-
-var mountPointRegexp = regexp.MustCompile(`(?s)<key>mount-point</key>\s*<string>([^<]+)</string>`)
 
 func maybeInstallApps(url string, data []byte, opts *Flags, output io.Writer) (bool, error) {
 	if !shouldAutoInstallApps(opts) || !isAppCapableAsset(url) {
@@ -254,15 +252,37 @@ func clearQuarantine(appPath string) error {
 }
 
 func attachDMG(assetPath string) (string, error) {
-	out, err := exec.Command("hdiutil", "attach", "-plist", assetPath, "-nobrowse", "-readonly").CombinedOutput()
+	out, err := exec.Command("hdiutil", "attach", assetPath, "-nobrowse", "-readonly").CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("mount dmg `%s`: %w\n%s", assetPath, err, strings.TrimSpace(string(out)))
 	}
-	match := mountPointRegexp.FindSubmatch(out)
-	if len(match) == 2 {
-		return string(match[1]), nil
+	if mountPoint, ok := mountPointFromAttachOutput(string(out)); ok {
+		return mountPoint, nil
 	}
 	return "", fmt.Errorf("mount dmg `%s`: no mount point found", assetPath)
+}
+
+func mountPointFromAttachOutput(out string) (string, bool) {
+	var mountPoint string
+
+	scanner := bufio.NewScanner(strings.NewReader(out))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if !strings.HasPrefix(line, "/dev/") {
+			continue
+		}
+
+		fields := strings.Split(line, "\t")
+		for i := len(fields) - 1; i >= 0; i-- {
+			field := strings.TrimSpace(fields[i])
+			if strings.HasPrefix(field, "/") {
+				mountPoint = field
+				break
+			}
+		}
+	}
+
+	return mountPoint, mountPoint != ""
 }
 
 func detachDMG(mountPoint string) {

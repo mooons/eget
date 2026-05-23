@@ -190,6 +190,24 @@ func TestAppInstallTarget(t *testing.T) {
 	}
 }
 
+func TestMountPointFromAttachOutput(t *testing.T) {
+	out := `Checksumming Protective Master Boot Record (MBR : 0)…
+verified   CRC32 $E90ABCCB
+/dev/disk18         	GUID_partition_scheme
+/dev/disk18s1       	Apple_APFS
+/dev/disk19         	EF57347C-0000-11AA-AA11-0030654
+/dev/disk19s1       	41504653-0000-11AA-AA11-0030654	/Volumes/Codex++ 4
+`
+
+	mountPoint, ok := mountPointFromAttachOutput(out)
+	if !ok {
+		t.Fatalf("expected mount point to be detected")
+	}
+	if mountPoint != "/Volumes/Codex++ 4" {
+		t.Fatalf("mount point = %q, want /Volumes/Codex++ 4", mountPoint)
+	}
+}
+
 func zipTestApp(t *testing.T, root, name, marker string) string {
 	t.Helper()
 	appPath := makeTestApp(t, root, name, marker, false, false)

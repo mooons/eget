@@ -41,9 +41,9 @@ func main() {
 		cmd.Stderr = os.Stderr
 		cmd.Env = os.Environ()
 		cgo := "0"
-		if runtime.GOOS == "darwin" {
+		if runtime.GOOS == "darwin" && platform == "darwin" {
 			cgo = "1"
-		} else {
+		} else if runtime.GOOS != "darwin" {
 			fmt.Println("warning: it is recommended to cross-compile on Mac, for cgo")
 		}
 		cmd.Env = append(cmd.Env,

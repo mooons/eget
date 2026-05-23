@@ -104,7 +104,7 @@ header: Eget Manual
 
    --upgrade-only
 
-:    Only download the asset if the release is more recent than an existing asset with the same name in `$EGET_BIN`, or the current directory if `$EGET_BIN` is not defined. This option is unsupported for automatic macOS app installs.
+:    Only download the asset if the source is newer than an existing install when timestamps can be compared. For CLI binaries from GitHub releases, Eget compares the release time against the existing binary in `$EGET_BIN`, or the current directory if `$EGET_BIN` is not defined. For automatic macOS app installs, Eget compares the source timestamp against each destination app bundle.
 
   `-a, --asset=`
 

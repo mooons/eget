@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestMaybeInstallAppsZipInstallsAppAndClearsQuarantine(t *testing.T) {
@@ -18,7 +19,7 @@ func TestMaybeInstallAppsZipInstallsAppAndClearsQuarantine(t *testing.T) {
 	runCmd(t, "ditto", "-c", "-k", "--keepParent", appPath, zipPath)
 
 	installDir := t.TempDir()
-	handled, err := maybeInstallApps(zipPath, mustReadFile(t, zipPath), &Flags{Output: installDir}, io.Discard)
+	handled, err := maybeInstallApps(zipPath, mustReadFile(t, zipPath), &Flags{Output: installDir}, io.Discard, time.Time{}, false)
 	if err != nil {
 		t.Fatalf("maybeInstallApps: %v", err)
 	}
@@ -42,7 +43,7 @@ func TestMaybeInstallAppsTarPreservesSymlink(t *testing.T) {
 	runCmd(t, "/usr/bin/tar", "-czf", tarPath, "-C", srcRoot, filepath.Base(appPath))
 
 	installDir := t.TempDir()
-	handled, err := maybeInstallApps(tarPath, mustReadFile(t, tarPath), &Flags{Output: installDir}, io.Discard)
+	handled, err := maybeInstallApps(tarPath, mustReadFile(t, tarPath), &Flags{Output: installDir}, io.Discard, time.Time{}, false)
 	if err != nil {
 		t.Fatalf("maybeInstallApps: %v", err)
 	}
@@ -68,7 +69,7 @@ func TestMaybeInstallAppsDMGInstallsAllAppsByDefault(t *testing.T) {
 	runCmd(t, "hdiutil", "create", "-ov", "-fs", "HFS+", "-srcfolder", srcRoot, "-volname", "Apps Volume", "-format", "UDZO", dmgPath)
 
 	installDir := t.TempDir()
-	handled, err := maybeInstallApps(dmgPath, mustReadFile(t, dmgPath), &Flags{Output: installDir}, io.Discard)
+	handled, err := maybeInstallApps(dmgPath, mustReadFile(t, dmgPath), &Flags{Output: installDir}, io.Discard, time.Time{}, false)
 	if err != nil {
 		t.Fatalf("maybeInstallApps: %v", err)
 	}
@@ -93,7 +94,7 @@ func TestMaybeInstallAppsFallsBackForZipWithoutApp(t *testing.T) {
 	zipPath := filepath.Join(t.TempDir(), "tool.zip")
 	runCmd(t, "ditto", "-c", "-k", "--keepParent", bin, zipPath)
 
-	handled, err := maybeInstallApps(zipPath, mustReadFile(t, zipPath), &Flags{Output: t.TempDir()}, io.Discard)
+	handled, err := maybeInstallApps(zipPath, mustReadFile(t, zipPath), &Flags{Output: t.TempDir()}, io.Discard, time.Time{}, false)
 	if err != nil {
 		t.Fatalf("maybeInstallApps: %v", err)
 	}
@@ -110,12 +111,12 @@ func TestMaybeInstallAppsConflictActions(t *testing.T) {
 	zipV4 := zipTestApp(t, srcRoot, "Conflict", "v4")
 
 	installDir := t.TempDir()
-	if handled, err := maybeInstallApps(zipV1, mustReadFile(t, zipV1), &Flags{Output: installDir}, io.Discard); err != nil || !handled {
+	if handled, err := maybeInstallApps(zipV1, mustReadFile(t, zipV1), &Flags{Output: installDir}, io.Discard, time.Time{}, false); err != nil || !handled {
 		t.Fatalf("initial install handled=%v err=%v", handled, err)
 	}
 
 	withPromptChoice(t, true, 1, func() {
-		if handled, err := maybeInstallApps(zipV2, mustReadFile(t, zipV2), &Flags{Output: installDir}, io.Discard); err != nil || !handled {
+		if handled, err := maybeInstallApps(zipV2, mustReadFile(t, zipV2), &Flags{Output: installDir}, io.Discard, time.Time{}, false); err != nil || !handled {
 			t.Fatalf("replace install handled=%v err=%v", handled, err)
 		}
 	})
@@ -124,7 +125,7 @@ func TestMaybeInstallAppsConflictActions(t *testing.T) {
 	}
 
 	withPromptChoice(t, true, 2, func() {
-		if handled, err := maybeInstallApps(zipV3, mustReadFile(t, zipV3), &Flags{Output: installDir}, io.Discard); err != nil || !handled {
+		if handled, err := maybeInstallApps(zipV3, mustReadFile(t, zipV3), &Flags{Output: installDir}, io.Discard, time.Time{}, false); err != nil || !handled {
 			t.Fatalf("skip install handled=%v err=%v", handled, err)
 		}
 	})
@@ -133,7 +134,7 @@ func TestMaybeInstallAppsConflictActions(t *testing.T) {
 	}
 
 	withPromptChoice(t, true, 3, func() {
-		if _, err := maybeInstallApps(zipV4, mustReadFile(t, zipV4), &Flags{Output: installDir}, io.Discard); err == nil {
+		if _, err := maybeInstallApps(zipV4, mustReadFile(t, zipV4), &Flags{Output: installDir}, io.Discard, time.Time{}, false); err == nil {
 			t.Fatalf("expected abort error")
 		}
 	})
@@ -142,25 +143,171 @@ func TestMaybeInstallAppsConflictActions(t *testing.T) {
 	}
 
 	withPromptChoice(t, false, 0, func() {
-		if _, err := maybeInstallApps(zipV4, mustReadFile(t, zipV4), &Flags{Output: installDir}, io.Discard); err == nil {
+		if _, err := maybeInstallApps(zipV4, mustReadFile(t, zipV4), &Flags{Output: installDir}, io.Discard, time.Time{}, false); err == nil {
 			t.Fatalf("expected non-interactive conflict error")
 		}
 	})
 }
 
-func TestMaybeInstallAppsRejectsUpgradeOnlyWhenAppsFound(t *testing.T) {
+func TestMaybeInstallAppsUpgradeOnlyInstallsWhenDestinationMissing(t *testing.T) {
 	srcRoot := t.TempDir()
 	zipPath := zipTestApp(t, srcRoot, "UpgradeApp", "v1")
+	sourceTime := time.Unix(200, 0)
+	installDir := t.TempDir()
+
+	handled, err := maybeInstallApps(zipPath, mustReadFile(t, zipPath), &Flags{
+		Output:      installDir,
+		UpgradeOnly: true,
+	}, io.Discard, sourceTime, true)
+	if err != nil {
+		t.Fatalf("upgrade install: %v", err)
+	}
+	if !handled {
+		t.Fatalf("expected app install to be handled")
+	}
+	dest := filepath.Join(installDir, "UpgradeApp.app")
+	fi, err := os.Stat(dest)
+	if err != nil {
+		t.Fatalf("stat installed app: %v", err)
+	}
+	if !fi.ModTime().Equal(sourceTime) {
+		t.Fatalf("installed app mod time = %v, want %v", fi.ModTime(), sourceTime)
+	}
+}
+
+func TestMaybeInstallAppsUpgradeOnlyUsesConflictPromptForOlderApps(t *testing.T) {
+	srcRoot := t.TempDir()
+	zipV1 := zipTestApp(t, srcRoot, "UpgradePrompt", "v1")
+	zipV2 := zipTestApp(t, srcRoot, "UpgradePrompt", "v2")
+	sourceTime := time.Unix(300, 0)
+
+	installDir := t.TempDir()
+	if handled, err := maybeInstallApps(zipV1, mustReadFile(t, zipV1), &Flags{Output: installDir}, io.Discard, time.Unix(100, 0), true); err != nil || !handled {
+		t.Fatalf("initial install handled=%v err=%v", handled, err)
+	}
+	mustSetModTime(t, filepath.Join(installDir, "UpgradePrompt.app"), time.Unix(100, 0))
+
+	withPromptChoice(t, true, 1, func() {
+		if handled, err := maybeInstallApps(zipV2, mustReadFile(t, zipV2), &Flags{
+			Output:      installDir,
+			UpgradeOnly: true,
+		}, io.Discard, sourceTime, true); err != nil || !handled {
+			t.Fatalf("replace upgrade handled=%v err=%v", handled, err)
+		}
+	})
+	if got := readMarker(t, filepath.Join(installDir, "UpgradePrompt.app")); got != "v2" {
+		t.Fatalf("replace marker = %q, want v2", got)
+	}
+}
+
+func TestMaybeInstallAppsUpgradeOnlySkipsEqualOrNewerApps(t *testing.T) {
+	srcRoot := t.TempDir()
+	zipPath := zipTestApp(t, srcRoot, "UpgradeSkip", "v1")
+	installDir := t.TempDir()
+
+	if handled, err := maybeInstallApps(zipPath, mustReadFile(t, zipPath), &Flags{Output: installDir}, io.Discard, time.Unix(100, 0), true); err != nil || !handled {
+		t.Fatalf("initial install handled=%v err=%v", handled, err)
+	}
+
+	dest := filepath.Join(installDir, "UpgradeSkip.app")
+	mustSetModTime(t, dest, time.Unix(300, 0))
+
+	handled, err := maybeInstallApps(zipPath, mustReadFile(t, zipPath), &Flags{
+		Output:      installDir,
+		UpgradeOnly: true,
+	}, io.Discard, time.Unix(200, 0), true)
+	if !handled {
+		t.Fatalf("expected app install to be handled")
+	}
+	if err == nil || err != ErrNoUpgrade {
+		t.Fatalf("expected ErrNoUpgrade, got %v", err)
+	}
+	if got := readMarker(t, dest); got != "v1" {
+		t.Fatalf("marker after newer skip = %q, want v1", got)
+	}
+
+	mustSetModTime(t, dest, time.Unix(200, 0))
+	handled, err = maybeInstallApps(zipPath, mustReadFile(t, zipPath), &Flags{
+		Output:      installDir,
+		UpgradeOnly: true,
+	}, io.Discard, time.Unix(200, 0), true)
+	if !handled {
+		t.Fatalf("expected app install to be handled")
+	}
+	if err == nil || err != ErrNoUpgrade {
+		t.Fatalf("expected ErrNoUpgrade on equal timestamp, got %v", err)
+	}
+}
+
+func TestMaybeInstallAppsUpgradeOnlyMixedMultiApp(t *testing.T) {
+	srcRoot := t.TempDir()
+	makeTestApp(t, srcRoot, "One", "one-new", false, false)
+	makeTestApp(t, srcRoot, "Two", "two-new", false, false)
+	zipPath := filepath.Join(t.TempDir(), "Apps.zip")
+	runCmd(t, "ditto", "-c", "-k", "--keepParent", srcRoot, zipPath)
+
+	installDir := t.TempDir()
+	oldOne := makeTestApp(t, installDir, "One", "one-old", false, false)
+	oldTwo := makeTestApp(t, installDir, "Two", "two-old", false, false)
+	mustSetModTime(t, oldOne, time.Unix(100, 0))
+	mustSetModTime(t, oldTwo, time.Unix(500, 0))
+
+	withPromptChoice(t, true, 1, func() {
+		handled, err := maybeInstallApps(zipPath, mustReadFile(t, zipPath), &Flags{
+			Output:      installDir,
+			UpgradeOnly: true,
+		}, io.Discard, time.Unix(300, 0), true)
+		if err != nil || !handled {
+			t.Fatalf("mixed multi-app handled=%v err=%v", handled, err)
+		}
+	})
+
+	if got := readMarker(t, filepath.Join(installDir, "One.app")); got != "one-new" {
+		t.Fatalf("One.app marker = %q, want one-new", got)
+	}
+	if got := readMarker(t, filepath.Join(installDir, "Two.app")); got != "two-old" {
+		t.Fatalf("Two.app marker = %q, want two-old", got)
+	}
+}
+
+func TestMaybeInstallAppsUpgradeOnlyAllSkippedReturnsNoUpgrade(t *testing.T) {
+	srcRoot := t.TempDir()
+	makeTestApp(t, srcRoot, "One", "one", false, false)
+	makeTestApp(t, srcRoot, "Two", "two", false, false)
+	zipPath := filepath.Join(t.TempDir(), "Apps.zip")
+	runCmd(t, "ditto", "-c", "-k", "--keepParent", srcRoot, zipPath)
+
+	installDir := t.TempDir()
+	one := makeTestApp(t, installDir, "One", "one-old", false, false)
+	two := makeTestApp(t, installDir, "Two", "two-old", false, false)
+	mustSetModTime(t, one, time.Unix(500, 0))
+	mustSetModTime(t, two, time.Unix(400, 0))
+
+	handled, err := maybeInstallApps(zipPath, mustReadFile(t, zipPath), &Flags{
+		Output:      installDir,
+		UpgradeOnly: true,
+	}, io.Discard, time.Unix(300, 0), true)
+	if !handled {
+		t.Fatalf("expected app install to be handled")
+	}
+	if err == nil || err != ErrNoUpgrade {
+		t.Fatalf("expected ErrNoUpgrade, got %v", err)
+	}
+}
+
+func TestMaybeInstallAppsUpgradeOnlyNeedsSourceTimestamp(t *testing.T) {
+	srcRoot := t.TempDir()
+	zipPath := zipTestApp(t, srcRoot, "UpgradeTimestamp", "v1")
 
 	handled, err := maybeInstallApps(zipPath, mustReadFile(t, zipPath), &Flags{
 		Output:      t.TempDir(),
 		UpgradeOnly: true,
-	}, io.Discard)
+	}, io.Discard, time.Time{}, false)
 	if err == nil {
-		t.Fatalf("expected --upgrade-only error")
+		t.Fatalf("expected missing source timestamp error")
 	}
 	if handled {
-		t.Fatalf("expected install to stop on --upgrade-only")
+		t.Fatalf("expected app install to stop on missing source timestamp")
 	}
 }
 
@@ -280,6 +427,13 @@ func readMarker(t *testing.T, appPath string) string {
 		t.Fatalf("read marker: %v", err)
 	}
 	return string(data)
+}
+
+func mustSetModTime(t *testing.T, path string, modTime time.Time) {
+	t.Helper()
+	if err := os.Chtimes(path, modTime, modTime); err != nil {
+		t.Fatalf("chtimes %s: %v", path, err)
+	}
 }
 
 func hasQuarantine(t *testing.T, appPath string) bool {

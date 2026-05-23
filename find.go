@@ -54,6 +54,7 @@ type GithubAssetFinder struct {
 	Tag        string
 	Prerelease bool
 	MinTime    time.Time // release must be after MinTime to be found
+	SourceTime time.Time
 }
 
 var ErrNoUpgrade = errors.New("requested release is not more recent than current version")
@@ -107,6 +108,7 @@ func (f *GithubAssetFinder) Find() ([]string, error) {
 	if release.CreatedAt.Before(f.MinTime) {
 		return nil, ErrNoUpgrade
 	}
+	f.SourceTime = release.CreatedAt
 
 	// accumulate all assets from the json into a slice
 	assets := make([]string, 0, len(release.Assets))
@@ -159,6 +161,7 @@ func (f *GithubAssetFinder) FindMatch() ([]string, error) {
 				continue
 			}
 			if strings.Contains(r.Tag, tag) && !r.CreatedAt.Before(f.MinTime) {
+				f.SourceTime = r.CreatedAt
 				// we have a winner
 				assets := make([]string, 0, len(r.Assets))
 				for _, a := range r.Assets {

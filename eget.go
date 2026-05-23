@@ -118,7 +118,7 @@ func getFinder(project string, opts *Flags) (finder Finder, tool string) {
 			}
 
 			var mint time.Time
-			if opts.UpgradeOnly {
+			if opts.UpgradeOnly && !shouldDeferUpgradeOnlyCheck(opts) {
 				parts := strings.Split(project, "/")
 				last := parts[len(parts)-1]
 				mint = bintime(last, opts.Output)
@@ -267,6 +267,10 @@ func userSelect(choices []interface{}) int {
 	return choice
 }
 
+func shouldDeferUpgradeOnlyCheck(opts *Flags) bool {
+	return opts.UpgradeOnly && shouldAutoInstallApps(opts)
+}
+
 func bintime(bin string, to string) (t time.Time) {
 	file := ""
 	dir := "."
@@ -293,6 +297,33 @@ func bintime(bin string, to string) (t time.Time) {
 		return
 	}
 	return fi.ModTime()
+}
+
+func finderSourceTime(finder Finder) (time.Time, bool) {
+	switch f := finder.(type) {
+	case *GithubAssetFinder:
+		if !f.SourceTime.IsZero() {
+			return f.SourceTime, true
+		}
+	}
+	return time.Time{}, false
+}
+
+func sourceTimeForAsset(finder Finder, meta DownloadMetadata) (time.Time, bool) {
+	if t, ok := finderSourceTime(finder); ok {
+		return t, true
+	}
+	if meta.HasModTime {
+		return meta.ModTime, true
+	}
+	return time.Time{}, false
+}
+
+func shouldSkipBinaryUpgrade(sourceTime time.Time, tool string, opts *Flags) bool {
+	if sourceTime.IsZero() {
+		return false
+	}
+	return sourceTime.Before(bintime(tool, opts.Output))
 }
 
 func downloadConfigRepositories(config *Config) error {
@@ -447,12 +478,19 @@ func main() {
 		fatal(err)
 	}
 
+	if shouldDeferUpgradeOnlyCheck(&opts) && !isAppCapableAsset(url) {
+		if sourceTime, ok := finderSourceTime(finder); ok && shouldSkipBinaryUpgrade(sourceTime, tool, &opts) {
+			fmt.Fprintf(output, "%s: %v\n", target, ErrNoUpgrade)
+			return
+		}
+	}
+
 	// print the URL
 	fmt.Fprintf(output, "%s\n", url)
 
 	// download with progress bar
 	buf := &bytes.Buffer{}
-	err = Download(url, buf, func(size int64) *pb.ProgressBar {
+	meta, err := Download(url, buf, func(size int64) *pb.ProgressBar {
 		var pbout io.Writer = os.Stderr
 		if opts.Quiet {
 			pbout = io.Discard
@@ -497,12 +535,24 @@ func main() {
 		fmt.Fprintf(output, "Checksum verified\n")
 	}
 
-	installedApps, err := maybeInstallApps(url, body, &opts, output)
+	sourceTime, hasSourceTime := sourceTimeForAsset(finder, meta)
+	installedApps, err := maybeInstallApps(url, body, &opts, output, sourceTime, hasSourceTime)
 	if err != nil {
+		if errors.Is(err, ErrNoUpgrade) {
+			fmt.Fprintf(output, "%s: %v\n", target, err)
+			return
+		}
 		fatal(err)
 	}
 	if installedApps {
 		return
+	}
+
+	if shouldDeferUpgradeOnlyCheck(&opts) && isAppCapableAsset(url) {
+		if sourceTime, ok := finderSourceTime(finder); ok && shouldSkipBinaryUpgrade(sourceTime, tool, &opts) {
+			fmt.Fprintf(output, "%s: %v\n", target, ErrNoUpgrade)
+			return
+		}
 	}
 
 	extractor, err := getExtractor(url, tool, &opts)

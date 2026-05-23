@@ -80,6 +80,12 @@ all installed. Existing destination apps prompt for `replace`, `skip`, or
 `abort`. If no app bundle is found in a `.zip` or `.tar*` asset, Eget falls
 back to the normal binary extraction flow unchanged.
 
+When automatic macOS app installation is used with `--upgrade-only`, Eget
+compares the source timestamp against each destination `.app` bundle's
+modification time. GitHub releases use the release creation time, direct URLs
+use `Last-Modified` when available, and local files use the source file
+modification time. Apps that are already up to date are skipped individually.
+
 Eget supports the following filetypes for assets:
 
 * `.tar.gz`/`.tgz`: tar archive with gzip compression.

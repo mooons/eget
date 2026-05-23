@@ -28,7 +28,7 @@ type CliFlags struct {
 	All         *bool     `long:"all" description:"extract all candidate files"`
 	Quiet       *bool     `short:"q" long:"quiet" description:"only print essential output"`
 	DLOnly      *bool     `short:"d" long:"download-only" description:"stop after downloading the asset (no extraction)"`
-	UpgradeOnly *bool     `long:"upgrade-only" description:"only download if release is more recent than current version (unsupported for automatic macOS app installs)"`
+	UpgradeOnly *bool     `long:"upgrade-only" description:"only download if the source is newer than the existing install when timestamps can be compared"`
 	Asset       *[]string `short:"a" long:"asset" description:"download a specific asset containing the given string; can be specified multiple times for additional filtering; use ^ for anti-match"`
 	Hash        *bool     `long:"sha256" description:"show the SHA-256 hash of the downloaded asset"`
 	Verify      *string   `long:"verify-sha256" description:"verify the downloaded asset checksum against the one provided"`

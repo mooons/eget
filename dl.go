@@ -129,36 +129,61 @@ func GetRateLimit() (RateLimit, error) {
 	return parsed.Resources["core"], err
 }
 
+type DownloadMetadata struct {
+	ModTime    time.Time
+	HasModTime bool
+}
+
 // Download the file at 'url' and write the http response body to 'out'. The
 // 'getbar' function allows the caller to construct a progress bar given the
 // size of the file being downloaded, and the download will write to the
 // returned progress bar.
-func Download(url string, out io.Writer, getbar func(size int64) *pb.ProgressBar) error {
+func Download(url string, out io.Writer, getbar func(size int64) *pb.ProgressBar) (DownloadMetadata, error) {
 	if IsLocalFile(url) {
 		f, err := os.Open(url)
 		if err != nil {
-			return err
+			return DownloadMetadata{}, err
 		}
 		defer f.Close()
+
+		fi, err := f.Stat()
+		if err != nil {
+			return DownloadMetadata{}, err
+		}
+
 		_, err = io.Copy(out, f)
-		return err
+		if err != nil {
+			return DownloadMetadata{}, err
+		}
+		return DownloadMetadata{
+			ModTime:    fi.ModTime(),
+			HasModTime: true,
+		}, nil
 	}
 
 	resp, err := Get(url)
 	if err != nil {
-		return err
+		return DownloadMetadata{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return err
+			return DownloadMetadata{}, err
 		}
-		return fmt.Errorf("download error: %d: %s", resp.StatusCode, body)
+		return DownloadMetadata{}, fmt.Errorf("download error: %d: %s", resp.StatusCode, body)
+	}
+
+	meta := DownloadMetadata{}
+	if lm := resp.Header.Get("Last-Modified"); lm != "" {
+		if t, err := http.ParseTime(lm); err == nil {
+			meta.ModTime = t
+			meta.HasModTime = true
+		}
 	}
 
 	bar := getbar(resp.ContentLength)
 	_, err = io.Copy(io.MultiWriter(out, bar), resp.Body)
-	return err
+	return meta, err
 }

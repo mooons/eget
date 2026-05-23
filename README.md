@@ -153,7 +153,9 @@ directory, or to name a single destination app bundle path ending in `.app`.
 After copying an app, Eget prints signing diagnostics only if Gatekeeper rejects
 it, then removes the `com.apple.quarantine` attribute from the copied bundle.
 This automatic app-install path does not run when `--download-only` is set or
-when `--file` is provided explicitly.
+when `--file` is provided explicitly. With `--upgrade-only`, Eget compares the
+source timestamp against each destination app bundle and skips apps that are
+already up to date.
 
 Directories can also be specified as files to extract, and all files within
 them will be extracted. For example:
@@ -184,7 +186,7 @@ Application Options:
       --all            extract all candidate files
   -q, --quiet          only print essential output
   -d, --download-only  stop after downloading the asset (no extraction)
-      --upgrade-only   only download if release is more recent than current version (unsupported for automatic macOS app installs)
+      --upgrade-only   only download if the source is newer than the existing install when timestamps can be compared
   -a, --asset=         download a specific asset containing the given string; can be specified multiple times for additional filtering; use ^ for anti-match
       --sha256         show the SHA-256 hash of the downloaded asset
       --verify-sha256= verify the downloaded asset checksum against the one provided
@@ -300,7 +302,11 @@ installed binaries. In general, Eget does not maintain any state across
 invocations. However, Eget does support the `--upgrade-only` option, which
 will first check `EGET_BIN` to determine if you have already downloaded the
 tool you are trying to install -- if so it will only download a new version if
-the GitHub release is newer than the binary on your file system.
+the GitHub release is newer than the binary on your file system. For automatic
+macOS app installs, Eget compares the source timestamp against each destination
+app bundle's modification time and skips apps that are already up to date.
+GitHub releases use the release creation time, direct URLs use `Last-Modified`
+when available, and local files use the source file modification time.
 
 ### Is this secure?
 

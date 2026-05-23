@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type appBundle struct {
@@ -18,7 +19,7 @@ type appBundle struct {
 	Source string
 }
 
-func maybeInstallApps(url string, data []byte, opts *Flags, output io.Writer) (bool, error) {
+func maybeInstallApps(url string, data []byte, opts *Flags, output io.Writer, sourceTime time.Time, hasSourceTime bool) (bool, error) {
 	if !shouldAutoInstallApps(opts) || !isAppCapableAsset(url) {
 		return false, nil
 	}
@@ -50,11 +51,11 @@ func maybeInstallApps(url string, data []byte, opts *Flags, output io.Writer) (b
 		}
 		return false, nil
 	}
-	if opts.UpgradeOnly {
-		return false, fmt.Errorf("--upgrade-only is not supported for automatic app installation")
+	if opts.UpgradeOnly && !hasSourceTime {
+		return false, fmt.Errorf("cannot determine source timestamp for automatic app installation with --upgrade-only")
 	}
 
-	return true, installAppBundles(bundles, opts, output)
+	return true, installAppBundles(bundles, opts, output, sourceTime, hasSourceTime)
 }
 
 func appBundlesFromDMG(name string, data []byte) ([]appBundle, func(), error) {
@@ -146,20 +147,26 @@ func discoverAppBundles(root string) ([]appBundle, error) {
 	return bundles, err
 }
 
-func installAppBundles(bundles []appBundle, opts *Flags, output io.Writer) error {
+func installAppBundles(bundles []appBundle, opts *Flags, output io.Writer, sourceTime time.Time, hasSourceTime bool) error {
+	upgradeCandidates := 0
+
 	for _, bundle := range bundles {
 		dest, err := appInstallTarget(bundle.Name, opts.Output, len(bundles))
 		if err != nil {
 			return err
 		}
 
-		exists := false
-		if _, err := os.Stat(dest); err == nil {
-			exists = true
-		} else if !os.IsNotExist(err) {
+		fi, err := os.Stat(dest)
+		exists := err == nil
+		if err != nil && !os.IsNotExist(err) {
 			return err
 		}
 		if exists {
+			if opts.UpgradeOnly && !sourceTime.After(fi.ModTime()) {
+				fmt.Fprintf(output, "Skipping `%s`: installed app is up to date\n", bundle.Name)
+				continue
+			}
+			upgradeCandidates++
 			action, err := appConflictAction(dest)
 			if err != nil {
 				return err
@@ -174,6 +181,8 @@ func installAppBundles(bundles []appBundle, opts *Flags, output io.Writer) error
 					return err
 				}
 			}
+		} else {
+			upgradeCandidates++
 		}
 
 		if err := copyAppBundle(bundle.Source, dest); err != nil {
@@ -183,7 +192,16 @@ func installAppBundles(bundles []appBundle, opts *Flags, output io.Writer) error
 		if err := clearQuarantine(dest); err != nil {
 			return err
 		}
+		if hasSourceTime {
+			if err := os.Chtimes(dest, sourceTime, sourceTime); err != nil {
+				return err
+			}
+		}
 		fmt.Fprintf(output, "Installed `%s` to `%s`\n", bundle.Name, dest)
+	}
+
+	if opts.UpgradeOnly && upgradeCandidates == 0 {
+		return ErrNoUpgrade
 	}
 	return nil
 }

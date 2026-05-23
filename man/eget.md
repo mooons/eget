@@ -15,10 +15,12 @@ header: Eget Manual
   on GitHub. To use it, provide a repository and Eget will search through the
   assets from the latest release in an attempt to find a suitable prebuilt
   binary for your system. If one is found, the asset will be downloaded and
-  Eget will extract the binary to the current directory. Eget should only be
-  used for installing simple, static prebuilt binaries, where the extracted
-  binary is all that is needed for installation. For more complex installation,
-  you may use the `--download-only` option, and perform extraction manually.
+  Eget will extract the binary to the current directory. On macOS, if the
+  selected asset contains `.app` bundles in a `.dmg`, `.zip`, or `.tar*`, Eget
+  installs those apps into `/Applications` by default. Existing CLI binary
+  installs continue to behave the same as before. For more complex
+  installation, you may use the `--download-only` option, and perform
+  extraction manually.
 
   The **`PROJECT`** argument passed to Eget should either be a GitHub
   repository, formatted as **`user/repo`**, in which case Eget will search the
@@ -35,6 +37,13 @@ header: Eget Manual
   default. If the environment variable **`EGET_BIN`** is non-empty, Eget will
   place the executable in that directory. The `--to` flag may also be used to
   customize the install location.
+
+  On macOS, if the selected asset contains `.app` bundles and `--file` is not
+  provided, Eget installs them into `/Applications` by default. If multiple apps
+  are found, they are all installed. Existing destination apps prompt for
+  `replace`, `skip`, or `abort`. The `--to` flag may also be used to override
+  the destination directory, or to name a single destination app bundle path
+  ending in `.app`.
 
   Directories can also be specified as files to extract, and all files within
   them will be extracted. For example:
@@ -67,7 +76,7 @@ header: Eget Manual
 
   `--to=`
 
-:    Move the executable to the given name after extraction. If the name is `-`, it the data will be written to stdout. Example: **`eget zyedidia/micro --to /usr/local/bin`**. Example: **`eget --asset nvim.appimage --to nvim neovim/neovim`**.
+:    Move the executable to the given name after extraction. On macOS app installs, use this to change the destination directory or to set a single destination path ending in `.app`. If the name is `-`, it the data will be written to stdout. Example: **`eget zyedidia/micro --to /usr/local/bin`**. Example: **`eget --asset nvim.appimage --to nvim neovim/neovim`**.
 
   `-s, --system=`
 
@@ -95,7 +104,7 @@ header: Eget Manual
 
    --upgrade-only
 
-:    Only download the asset if the release is more recent than an existing asset with the same name in `$EGET_BIN`, or the current directory if `$EGET_BIN` is not defined.
+:    Only download the asset if the release is more recent than an existing asset with the same name in `$EGET_BIN`, or the current directory if `$EGET_BIN` is not defined. This option is unsupported for automatic macOS app installs.
 
   `-a, --asset=`
 

@@ -72,6 +72,14 @@ permissions exist and none of them match the repo name, Eget will ask the user
 to choose. Files ending in `.exe` are also assumed to be executable, regardless
 of permissions within the archive.
 
+On macOS, when no explicit `--file` is provided, Eget will also look for `.app`
+bundles inside `.dmg`, `.zip`, and `.tar*` assets. If app bundles are found,
+they are installed into `/Applications` by default instead of extracting a
+binary into the current directory. If multiple app bundles are found, they are
+all installed. Existing destination apps prompt for `replace`, `skip`, or
+`abort`. If no app bundle is found in a `.zip` or `.tar*` asset, Eget falls
+back to the normal binary extraction flow unchanged.
+
 Eget supports the following filetypes for assets:
 
 * `.tar.gz`/`.tgz`: tar archive with gzip compression.

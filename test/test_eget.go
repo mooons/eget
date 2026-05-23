@@ -32,17 +32,17 @@ func main() {
 	must(run(eget, "--system", "linux/amd64", "jgm/pandoc"))
 	must(fileExists("pandoc"))
 
-	must(run(eget, "zyedidia/micro", "--tag", "nightly", "--asset", "osx"))
+	must(run(eget, "zyedidia/micro", "--tag", "nightly", "--asset", "micro-nightly-osx.tar.gz"))
 	must(fileExists("micro"))
 
-	must(run(eget, "--asset", "nvim.appimage", "--to", "nvim", "neovim/neovim"))
-	must(fileExists("nvim"))
+	must(run(eget, "--to", "batbin", "sharkdp/bat"))
+	must(fileExists("batbin"))
 
 	must(run(eget, "--system", "darwin/amd64", "sharkdp/fd"))
 	must(fileExists("fd"))
 
-	must(run(eget, "--system", "windows/amd64", "--asset", "windows-gnu", "BurntSushi/ripgrep"))
-	must(fileExists("rg.exe"))
+	must(run(eget, "--system", "windows/amd64", "junegunn/fzf"))
+	must(fileExists("fzf.exe"))
 
 	must(run(eget, "-f", "eget.1", "zyedidia/eget"))
 	must(fileExists("eget.1"))

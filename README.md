@@ -9,9 +9,10 @@ tools. It downloads and extracts pre-built binaries from releases on GitHub. To
 use it, provide a repository and Eget will search through the assets from the
 latest release in an attempt to find a suitable prebuilt binary for your
 system. If one is found, the asset will be downloaded and Eget will extract the
-binary to the current directory. Eget should only be used for installing
-simple, static prebuilt binaries, where the extracted binary is all that is
-needed for installation. For more complex installation, you may use the
+binary to the current directory. On macOS, if the selected asset contains app
+bundles (`.app`) in a `.dmg`, `.zip`, or `.tar*`, Eget will install those apps
+to `/Applications` by default. Existing CLI binary installs continue to behave
+the same as before. For more complex installation, you may use the
 `--download-only` option, and perform extraction manually.
 
 ![Eget Demo](https://github.com/zyedidia/blobs/blob/master/eget-demo.gif)
@@ -36,6 +37,7 @@ eget neovim/neovim
 eget ogham/exa --asset ^musl
 eget --system darwin/amd64 sharkdp/fd
 eget BurntSushi/ripgrep
+eget BigPizzaV3/CodexPlusPlus
 eget -f eget.1 zyedidia/eget
 eget zachjs/sv2v
 eget https://go.dev/dl/go1.17.5.linux-amd64.tar.gz --file go --to ~/go1.17.5
@@ -118,6 +120,14 @@ When installing an executable, Eget will place it in the current directory by
 default. If the environment variable `EGET_BIN` is non-empty, Eget will
 place the executable in that directory.
 
+On macOS, if the selected asset contains `.app` bundles and `--file` is not
+provided, Eget installs them into `/Applications` by default. If multiple apps
+are found, they are all installed. Existing destination apps prompt for
+`replace`, `skip`, or `abort`. `--to` may be used to override the destination
+directory, or to name a single destination app bundle path ending in `.app`.
+After copying an app, Eget prints signing diagnostics only if Gatekeeper rejects
+it, then removes the `com.apple.quarantine` attribute from the copied bundle.
+
 Directories can also be specified as files to extract, and all files within
 them will be extracted. For example:
 
@@ -141,13 +151,13 @@ Application Options:
   -t, --tag=           tagged release to use instead of latest
       --pre-release    include pre-releases when fetching the latest version
       --source         download the source code for the target repo instead of a release
-      --to=            move to given location after extracting
+      --to=            move to given location after extracting, or set the app install destination on macOS
   -s, --system=        target system to download for (use "all" for all choices)
   -f, --file=          glob to select files for extraction
       --all            extract all candidate files
   -q, --quiet          only print essential output
   -d, --download-only  stop after downloading the asset (no extraction)
-      --upgrade-only   only download if release is more recent than current version
+      --upgrade-only   only download if release is more recent than current version (unsupported for automatic macOS app installs)
   -a, --asset=         download a specific asset containing the given string; can be specified multiple times for additional filtering; use ^ for anti-match
       --sha256         show the SHA-256 hash of the downloaded asset
       --verify-sha256= verify the downloaded asset checksum against the one provided

@@ -431,14 +431,18 @@ func main() {
 	// get the url and candidates from the detector
 	url, candidates, err := detector.Detect(assets)
 	if len(candidates) != 0 && err != nil {
-		// if multiple candidates are returned, the user must select manually which one to download
-		fmt.Fprintf(os.Stderr, "%v: please select manually\n", err)
-		choices := make([]interface{}, len(candidates))
-		for i := range candidates {
-			choices[i] = path.Base(candidates[i])
+		if preferred, ok := preferDarwinAppAsset(candidates, &opts); ok {
+			url = preferred
+		} else {
+			// if multiple candidates are returned, the user must select manually which one to download
+			fmt.Fprintf(os.Stderr, "%v: please select manually\n", err)
+			choices := make([]interface{}, len(candidates))
+			for i := range candidates {
+				choices[i] = path.Base(candidates[i])
+			}
+			choice := userSelect(choices)
+			url = candidates[choice-1]
 		}
-		choice := userSelect(choices)
-		url = candidates[choice-1]
 	} else if err != nil {
 		fatal(err)
 	}
@@ -491,6 +495,14 @@ func main() {
 		fmt.Fprintf(output, "Checksum verified with %s\n", path.Base(sumAsset))
 	} else if opts.Verify != "" {
 		fmt.Fprintf(output, "Checksum verified\n")
+	}
+
+	installedApps, err := maybeInstallApps(url, body, &opts, output)
+	if err != nil {
+		fatal(err)
+	}
+	if installedApps {
+		return
 	}
 
 	extractor, err := getExtractor(url, tool, &opts)

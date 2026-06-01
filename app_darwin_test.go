@@ -316,7 +316,7 @@ func TestAppInstallTarget(t *testing.T) {
 	defaultAppInstallDir = "/Applications"
 	t.Cleanup(func() { defaultAppInstallDir = oldDefault })
 
-	dest, err := appInstallTarget("Sample.app", "", 1)
+	dest, err := appInstallTarget("Sample.app", &Flags{}, 1)
 	if err != nil {
 		t.Fatalf("default target: %v", err)
 	}
@@ -324,7 +324,7 @@ func TestAppInstallTarget(t *testing.T) {
 		t.Fatalf("default target = %q", dest)
 	}
 
-	dest, err = appInstallTarget("Sample.app", "/tmp/Custom.app", 1)
+	dest, err = appInstallTarget("Sample.app", &Flags{Output: "/tmp/Custom.app", OutputExplicit: true}, 1)
 	if err != nil {
 		t.Fatalf("exact target: %v", err)
 	}
@@ -332,7 +332,27 @@ func TestAppInstallTarget(t *testing.T) {
 		t.Fatalf("exact target = %q", dest)
 	}
 
-	if _, err := appInstallTarget("Sample.app", "/tmp/Custom.app", 2); err == nil {
+	dest, err = appInstallTarget("Sample.app", &Flags{Output: "/tmp/bin", AppOutput: "/Applications/Utilities"}, 1)
+	if err != nil {
+		t.Fatalf("app target override: %v", err)
+	}
+	if dest != "/Applications/Utilities/Sample.app" {
+		t.Fatalf("app target override = %q", dest)
+	}
+
+	dest, err = appInstallTarget("Sample.app", &Flags{
+		Output:         "/tmp/Explicit",
+		AppOutput:      "/Applications/Utilities",
+		OutputExplicit: true,
+	}, 1)
+	if err != nil {
+		t.Fatalf("explicit target override: %v", err)
+	}
+	if dest != "/tmp/Explicit/Sample.app" {
+		t.Fatalf("explicit target override = %q", dest)
+	}
+
+	if _, err := appInstallTarget("Sample.app", &Flags{Output: "/tmp/Custom.app", OutputExplicit: true}, 2); err == nil {
 		t.Fatalf("expected exact target to fail for multiple apps")
 	}
 }

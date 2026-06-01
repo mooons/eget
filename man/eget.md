@@ -43,7 +43,9 @@ header: Eget Manual
   are found, they are all installed. Existing destination apps prompt for
   `replace`, `skip`, or `abort`. The `--to` flag may also be used to override
   the destination directory, or to name a single destination app bundle path
-  ending in `.app`.
+  ending in `.app`. Config `target_app` may be used to set a different default
+  destination for automatic macOS app installs; it overrides config `target`
+  for app bundles only.
 
   Directories can also be specified as files to extract, and all files within
   them will be extracted. For example:
@@ -149,12 +151,13 @@ header: Eget Manual
   format is quoted).
 
   For example, the following configuration file will set the `--to` flag to `~/bin` for 
-  all repositories, and will set the `--to` flag to `~/.local/bin` for the `zyedidia/micro` 
-  repository.
+  all repositories, default automatic macOS app installs to `/Applications`, and will set
+  the `--to` flag to `~/.local/bin` for the `zyedidia/micro` repository.
 
 ```toml
   [global]
   target = "~/bin"
+  target_app = "/Applications"
 
   ["zyedidia/micro"]
   target = "~/.local/bin"
@@ -169,6 +172,7 @@ header: Eget Manual
     show_hash = false
     upgrade_only = true
     target = "./test"
+    target_app = "/Applications"
 
 ["zyedidia/micro"]
     upgrade_only = false
@@ -221,6 +225,11 @@ header: Eget Manual
   `target`
 
 :    The directory to move the downloaded file to after extraction.
+
+  `target_app`
+
+:    Default destination for automatic macOS app installs. This overrides config
+     `target` for app bundles only, while an explicit `--to` still takes precedence.
 
   `upgrade_only`
 

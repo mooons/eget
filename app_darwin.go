@@ -151,7 +151,7 @@ func installAppBundles(bundles []appBundle, opts *Flags, output io.Writer, sourc
 	upgradeCandidates := 0
 
 	for _, bundle := range bundles {
-		dest, err := appInstallTarget(bundle.Name, opts.Output, len(bundles))
+		dest, err := appInstallTarget(bundle.Name, opts, len(bundles))
 		if err != nil {
 			return err
 		}
@@ -206,7 +206,8 @@ func installAppBundles(bundles []appBundle, opts *Flags, output io.Writer, sourc
 	return nil
 }
 
-func appInstallTarget(name string, output string, count int) (string, error) {
+func appInstallTarget(name string, opts *Flags, count int) (string, error) {
+	output := resolvedAppInstallOutput(opts)
 	if output != "" && strings.HasSuffix(output, ".app") {
 		if count != 1 {
 			return "", fmt.Errorf("--to %s requires exactly one app bundle", output)
@@ -219,6 +220,16 @@ func appInstallTarget(name string, output string, count int) (string, error) {
 		root = output
 	}
 	return filepath.Join(root, name), nil
+}
+
+func resolvedAppInstallOutput(opts *Flags) string {
+	if opts.OutputExplicit && opts.Output != "" {
+		return opts.Output
+	}
+	if opts.AppOutput != "" {
+		return opts.AppOutput
+	}
+	return opts.Output
 }
 
 func appConflictAction(dest string) (string, error) {

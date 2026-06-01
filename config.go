@@ -22,6 +22,7 @@ type ConfigGlobal struct {
 	Source       bool   `toml:"download_source"`
 	System       string `toml:"system"`
 	Target       string `toml:"target"`
+	TargetApp    string `toml:"target_app"`
 	UpgradeOnly  bool   `toml:"upgrade_only"`
 }
 
@@ -37,6 +38,7 @@ type ConfigRepository struct {
 	System       string   `toml:"system"`
 	Tag          string   `toml:"tag"`
 	Target       string   `toml:"target"`
+	TargetApp    string   `toml:"target_app"`
 	UpgradeOnly  bool     `toml:"upgrade_only"`
 	Verify       string   `toml:"verify_sha256"`
 	DisableSSL   bool     `toml:"disable_ssl"`
@@ -200,6 +202,10 @@ func InitializeConfig() (*Config, error) {
 			repo.Target = config.Global.Target
 		}
 
+		if !config.Meta.MetaData.IsDefined(name, "target_app") && config.Global.TargetApp != "" {
+			repo.TargetApp = config.Global.TargetApp
+		}
+
 		if !config.Meta.MetaData.IsDefined(name, "upgrade_only") {
 			repo.UpgradeOnly = config.Global.UpgradeOnly
 		}
@@ -227,6 +233,7 @@ func SetGlobalOptionsFromConfig(config *Config, parser *flags.Parser, opts *Flag
 		os.Setenv("EGET_GITHUB_TOKEN", config.Global.GithubToken)
 	}
 
+	opts.OutputExplicit = cli.Output != nil
 	opts.Tag = update("", cli.Tag)
 	opts.Prerelease = update(false, cli.Prerelease)
 	opts.Source = update(config.Global.Source, cli.Source)
@@ -236,6 +243,11 @@ func SetGlobalOptionsFromConfig(config *Config, parser *flags.Parser, opts *Flag
 		return err
 	}
 	opts.Output = expanded
+	appTarg, err := home.Expand(config.Global.TargetApp)
+	if err != nil {
+		return err
+	}
+	opts.AppOutput = appTarg
 	opts.System = update(config.Global.System, cli.System)
 	opts.ExtractFile = update("", cli.ExtractFile)
 	opts.All = update(config.Global.All, cli.All)
@@ -264,6 +276,11 @@ func SetProjectOptionsFromConfig(config *Config, parser *flags.Parser, opts *Fla
 				return err
 			}
 			opts.Output = update(targ, cli.Output)
+			appTarg, err := home.Expand(repo.TargetApp)
+			if err != nil {
+				return err
+			}
+			opts.AppOutput = appTarg
 			opts.Quiet = update(repo.Quiet, cli.Quiet)
 			opts.Source = update(repo.Source, cli.Source)
 			opts.System = update(repo.System, cli.System)

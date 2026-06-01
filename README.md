@@ -150,6 +150,9 @@ provided, Eget installs them into `/Applications` by default. If multiple apps
 are found, they are all installed. Existing destination apps prompt for
 `replace`, `skip`, or `abort`. `--to` may be used to override the destination
 directory, or to name a single destination app bundle path ending in `.app`.
+If you want app bundles to use a different default than CLI binaries, set
+`target_app` in the config file. For automatic macOS app installs, `target_app`
+overrides config `target`, while an explicit `--to` still overrides both.
 After copying an app, Eget prints signing diagnostics only if Gatekeeper rejects
 it, then removes the `com.apple.quarantine` attribute from the copied bundle.
 This automatic app-install path does not run when `--download-only` is set or
@@ -210,12 +213,13 @@ are the owner and repository name of the target repository (not that the `owner/
 format is quoted).
 
 For example, the following configuration file will set the `--to` flag to `~/bin` for
-all repositories, and will set the `--to` flag to `~/.local/bin` for the `zyedidia/micro`
-repository.
+all repositories, default automatic macOS app installs to `/Applications`, and
+will set the `--to` flag to `~/.local/bin` for the `zyedidia/micro` repository.
 
 ```toml
 [global]
 target = "~/bin"
+target_app = "/Applications"
 
 ["zyedidia/micro"]
 target = "~/.local/bin"
@@ -234,6 +238,7 @@ target = "~/.local/bin"
 | `show_hash` | `--sha256` | Whether to show the SHA-256 hash of the downloaded asset. | `false` |
 | `system` | `--system` | The target system to download for. | `all` |
 | `target` | `--to` | The directory to move the downloaded file to after extraction. | `.` |
+| `target_app` | `N/A` | Default destination for automatic macOS app installs; overrides config `target` for app bundles only. | `"/Applications"` |
 | `upgrade_only` | `--upgrade-only` | Whether to only download if release is more recent than current version. | `false` |
 
 ## Available settings - repository sections
@@ -249,6 +254,7 @@ target = "~/.local/bin"
 | `show_hash` | `--sha256` | Whether to show the SHA-256 hash of the downloaded asset. | `false` |
 | `system` | `--system` | The target system to download for. | `all` |
 | `target` | `--to` | The directory to move the downloaded file to after extraction. | `.` |
+| `target_app` | `N/A` | Default destination for automatic macOS app installs; overrides repository or global `target` for app bundles only. | `"/Applications"` |
 | `upgrade_only` | `--upgrade-only` | Whether to only download if release is more recent than current version. | `false` |
 | `verify_sha256` | `--verify-sha256` | Verify the sha256 hash of the asset against a provided hash. | `""` |
 
@@ -262,6 +268,7 @@ target = "~/.local/bin"
     show_hash = false
     upgrade_only = true
     target = "./test"
+    target_app = "/Applications"
 
 ["zyedidia/micro"]
     upgrade_only = false

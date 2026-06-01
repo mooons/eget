@@ -375,6 +375,24 @@ verified   CRC32 $E90ABCCB
 	}
 }
 
+func TestMountPointFromAttachOutputIgnoresTrailingDeviceNodes(t *testing.T) {
+	out := `Checksumming Protective Master Boot Record (MBR : 0)…
+verified   CRC32 $E90ABCCB
+/dev/disk10         	EF57347C-0000-11AA-AA11-0030654
+/dev/disk10s1       	41504653-0000-11AA-AA11-0030654	/Volumes/Codex++
+/dev/disk9          	GUID_partition_scheme
+/dev/disk9s1        	Apple_APFS
+`
+
+	mountPoint, ok := mountPointFromAttachOutput(out)
+	if !ok {
+		t.Fatalf("expected mount point to be detected")
+	}
+	if mountPoint != "/Volumes/Codex++" {
+		t.Fatalf("mount point = %q, want /Volumes/Codex++", mountPoint)
+	}
+}
+
 func zipTestApp(t *testing.T, root, name, marker string) string {
 	t.Helper()
 	appPath := makeTestApp(t, root, name, marker, false, false)

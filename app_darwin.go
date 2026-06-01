@@ -304,7 +304,7 @@ func mountPointFromAttachOutput(out string) (string, bool) {
 		fields := strings.Split(line, "\t")
 		for i := len(fields) - 1; i >= 0; i-- {
 			field := strings.TrimSpace(fields[i])
-			if strings.HasPrefix(field, "/") {
+			if strings.HasPrefix(field, "/") && !strings.HasPrefix(field, "/dev/") {
 				mountPoint = field
 				break
 			}

@@ -147,9 +147,10 @@ place the executable in that directory.
 
 On macOS, if the selected asset contains `.app` bundles and `--file` is not
 provided, Eget installs them into `/Applications` by default. If multiple apps
-are found, they are all installed. Existing destination apps prompt for
-`replace`, `skip`, or `abort`. `--to` may be used to override the destination
-directory, or to name a single destination app bundle path ending in `.app`.
+are found, they are all installed. Existing destination apps are replaced
+automatically when an install is needed. `--to` may be used to override the
+destination directory, or to name a single destination app bundle path ending
+in `.app`.
 If you want app bundles to use a different default than CLI binaries, set
 `target_app` in the config file. For automatic macOS app installs, `target_app`
 overrides config `target`, while an explicit `--to` still overrides both.

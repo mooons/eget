@@ -103,50 +103,24 @@ func TestMaybeInstallAppsFallsBackForZipWithoutApp(t *testing.T) {
 	}
 }
 
-func TestMaybeInstallAppsConflictActions(t *testing.T) {
+func TestMaybeInstallAppsReplacesExistingAppsWithoutPrompt(t *testing.T) {
 	srcRoot := t.TempDir()
 	zipV1 := zipTestApp(t, srcRoot, "Conflict", "v1")
 	zipV2 := zipTestApp(t, srcRoot, "Conflict", "v2")
-	zipV3 := zipTestApp(t, srcRoot, "Conflict", "v3")
-	zipV4 := zipTestApp(t, srcRoot, "Conflict", "v4")
 
 	installDir := t.TempDir()
 	if handled, err := maybeInstallApps(zipV1, mustReadFile(t, zipV1), &Flags{Output: installDir}, io.Discard, time.Time{}, false); err != nil || !handled {
 		t.Fatalf("initial install handled=%v err=%v", handled, err)
 	}
 
-	withPromptChoice(t, true, 1, func() {
+	withPromptForbidden(t, func() {
 		if handled, err := maybeInstallApps(zipV2, mustReadFile(t, zipV2), &Flags{Output: installDir}, io.Discard, time.Time{}, false); err != nil || !handled {
-			t.Fatalf("replace install handled=%v err=%v", handled, err)
+			t.Fatalf("replacement install handled=%v err=%v", handled, err)
 		}
 	})
 	if got := readMarker(t, filepath.Join(installDir, "Conflict.app")); got != "v2" {
-		t.Fatalf("replace marker = %q, want v2", got)
+		t.Fatalf("replacement marker = %q, want v2", got)
 	}
-
-	withPromptChoice(t, true, 2, func() {
-		if handled, err := maybeInstallApps(zipV3, mustReadFile(t, zipV3), &Flags{Output: installDir}, io.Discard, time.Time{}, false); err != nil || !handled {
-			t.Fatalf("skip install handled=%v err=%v", handled, err)
-		}
-	})
-	if got := readMarker(t, filepath.Join(installDir, "Conflict.app")); got != "v2" {
-		t.Fatalf("skip marker = %q, want v2", got)
-	}
-
-	withPromptChoice(t, true, 3, func() {
-		if _, err := maybeInstallApps(zipV4, mustReadFile(t, zipV4), &Flags{Output: installDir}, io.Discard, time.Time{}, false); err == nil {
-			t.Fatalf("expected abort error")
-		}
-	})
-	if got := readMarker(t, filepath.Join(installDir, "Conflict.app")); got != "v2" {
-		t.Fatalf("abort marker = %q, want v2", got)
-	}
-
-	withPromptChoice(t, false, 0, func() {
-		if _, err := maybeInstallApps(zipV4, mustReadFile(t, zipV4), &Flags{Output: installDir}, io.Discard, time.Time{}, false); err == nil {
-			t.Fatalf("expected non-interactive conflict error")
-		}
-	})
 }
 
 func TestMaybeInstallAppsUpgradeOnlyInstallsWhenDestinationMissing(t *testing.T) {
@@ -175,7 +149,7 @@ func TestMaybeInstallAppsUpgradeOnlyInstallsWhenDestinationMissing(t *testing.T)
 	}
 }
 
-func TestMaybeInstallAppsUpgradeOnlyUsesConflictPromptForOlderApps(t *testing.T) {
+func TestMaybeInstallAppsUpgradeOnlyReplacesOlderAppsWithoutPrompt(t *testing.T) {
 	srcRoot := t.TempDir()
 	zipV1 := zipTestApp(t, srcRoot, "UpgradePrompt", "v1")
 	zipV2 := zipTestApp(t, srcRoot, "UpgradePrompt", "v2")
@@ -187,16 +161,16 @@ func TestMaybeInstallAppsUpgradeOnlyUsesConflictPromptForOlderApps(t *testing.T)
 	}
 	mustSetModTime(t, filepath.Join(installDir, "UpgradePrompt.app"), time.Unix(100, 0))
 
-	withPromptChoice(t, true, 1, func() {
+	withPromptForbidden(t, func() {
 		if handled, err := maybeInstallApps(zipV2, mustReadFile(t, zipV2), &Flags{
 			Output:      installDir,
 			UpgradeOnly: true,
 		}, io.Discard, sourceTime, true); err != nil || !handled {
-			t.Fatalf("replace upgrade handled=%v err=%v", handled, err)
+			t.Fatalf("replacement upgrade handled=%v err=%v", handled, err)
 		}
 	})
 	if got := readMarker(t, filepath.Join(installDir, "UpgradePrompt.app")); got != "v2" {
-		t.Fatalf("replace marker = %q, want v2", got)
+		t.Fatalf("replacement marker = %q, want v2", got)
 	}
 }
 
@@ -252,7 +226,7 @@ func TestMaybeInstallAppsUpgradeOnlyMixedMultiApp(t *testing.T) {
 	mustSetModTime(t, oldOne, time.Unix(100, 0))
 	mustSetModTime(t, oldTwo, time.Unix(500, 0))
 
-	withPromptChoice(t, true, 1, func() {
+	withPromptForbidden(t, func() {
 		handled, err := maybeInstallApps(zipPath, mustReadFile(t, zipPath), &Flags{
 			Output:      installDir,
 			UpgradeOnly: true,
@@ -501,12 +475,15 @@ func runCmd(t *testing.T, name string, args ...string) {
 	}
 }
 
-func withPromptChoice(t *testing.T, interactive bool, choice int, fn func()) {
+func withPromptForbidden(t *testing.T, fn func()) {
 	t.Helper()
 	oldInteractive := stdinInteractiveFunc
 	oldSelect := userSelectFunc
-	stdinInteractiveFunc = func() bool { return interactive }
-	userSelectFunc = func([]interface{}) int { return choice }
+	stdinInteractiveFunc = func() bool { return true }
+	userSelectFunc = func([]interface{}) int {
+		t.Fatalf("unexpected prompt during automatic app replacement")
+		return 0
+	}
 	defer func() {
 		stdinInteractiveFunc = oldInteractive
 		userSelectFunc = oldSelect

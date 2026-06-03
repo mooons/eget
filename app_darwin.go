@@ -167,19 +167,8 @@ func installAppBundles(bundles []appBundle, opts *Flags, output io.Writer, sourc
 				continue
 			}
 			upgradeCandidates++
-			action, err := appConflictAction(dest)
-			if err != nil {
+			if err := os.RemoveAll(dest); err != nil {
 				return err
-			}
-			switch action {
-			case "skip":
-				continue
-			case "abort":
-				return fmt.Errorf("installation aborted")
-			case "replace":
-				if err := os.RemoveAll(dest); err != nil {
-					return err
-				}
 			}
 		} else {
 			upgradeCandidates++
@@ -230,23 +219,6 @@ func resolvedAppInstallOutput(opts *Flags) string {
 		return opts.AppOutput
 	}
 	return opts.Output
-}
-
-func appConflictAction(dest string) (string, error) {
-	if !stdinInteractiveFunc() {
-		return "", fmt.Errorf("destination `%s` already exists; rerun interactively or remove it first", dest)
-	}
-
-	fmt.Fprintf(os.Stderr, "`%s` already exists: select action\n", dest)
-	choices := []interface{}{"replace", "skip", "abort"}
-	switch userSelectFunc(choices) {
-	case 1:
-		return "replace", nil
-	case 2:
-		return "skip", nil
-	default:
-		return "abort", nil
-	}
 }
 
 func copyAppBundle(src string, dest string) error {

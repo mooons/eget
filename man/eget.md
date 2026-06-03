@@ -40,12 +40,12 @@ header: Eget Manual
 
   On macOS, if the selected asset contains `.app` bundles and `--file` is not
   provided, Eget installs them into `/Applications` by default. If multiple apps
-  are found, they are all installed. Existing destination apps prompt for
-  `replace`, `skip`, or `abort`. The `--to` flag may also be used to override
-  the destination directory, or to name a single destination app bundle path
-  ending in `.app`. Config `target_app` may be used to set a different default
-  destination for automatic macOS app installs; it overrides config `target`
-  for app bundles only.
+  are found, they are all installed. Existing destination apps are replaced
+  automatically when an install is needed. The `--to` flag may also be used to
+  override the destination directory, or to name a single destination app
+  bundle path ending in `.app`. Config `target_app` may be used to set a
+  different default destination for automatic macOS app installs; it overrides
+  config `target` for app bundles only.
 
   Directories can also be specified as files to extract, and all files within
   them will be extracted. For example:

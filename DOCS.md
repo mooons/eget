@@ -76,12 +76,12 @@ On macOS, when no explicit `--file` is provided, Eget will also look for `.app`
 bundles inside `.dmg`, `.zip`, and `.tar*` assets. If app bundles are found,
 they are installed into `/Applications` by default instead of extracting a
 binary into the current directory. If multiple app bundles are found, they are
-all installed. Existing destination apps prompt for `replace`, `skip`, or
-`abort`. Config `target_app` may be used to set a different default destination
-for automatic macOS app installs; it overrides config `target` for app bundles
-only, while an explicit `--to` still takes precedence. If no app bundle is
-found in a `.zip` or `.tar*` asset, Eget falls back to the normal binary
-extraction flow unchanged.
+all installed. Existing destination apps are replaced automatically when an
+install is needed. Config `target_app` may be used to set a different default
+destination for automatic macOS app installs; it overrides config `target` for
+app bundles only, while an explicit `--to` still takes precedence. If no app
+bundle is found in a `.zip` or `.tar*` asset, Eget falls back to the normal
+binary extraction flow unchanged.
 
 When automatic macOS app installation is used with `--upgrade-only`, Eget
 compares the source timestamp against each destination `.app` bundle's
